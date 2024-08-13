@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 import uuid
 import git
+import json
 
 app = Flask(__name__)
 
@@ -118,6 +119,39 @@ def blackbox_ai():
 
     else:
         return jsonify({"status": "Error", "message": "Invalid action for Blackbox AI"})
+
+@app.route('/integrate', methods=['POST'])
+def integrate_ai():
+    data = request.json
+    project_id = data.get('project_id')
+    code_description = data.get('code_description')
+
+    if project_id not in projects:
+        return jsonify({"status": "Error", "message": "Project not found"})
+
+    # Step 1: Use Devin AI to create a new task
+    projects[project_id]['tasks'].append(f"Implement: {code_description}")
+
+    # Step 2: Use ChatGPT to generate code
+    chatgpt_response = chatgpt()
+    chatgpt_data = json.loads(chatgpt_response.get_data(as_text=True))
+    generated_code = chatgpt_data['code']
+
+    # Step 3: Use Blackbox AI to optimize the generated code
+    blackbox_response = blackbox_ai()
+    blackbox_data = json.loads(blackbox_response.get_data(as_text=True))
+    optimized_code = blackbox_data['optimized_code']
+
+    # Step 4: Update project progress
+    projects[project_id]['progress'] += 10
+
+    return jsonify({
+        "status": "OK",
+        "message": "Integrated AI task completed",
+        "generated_code": generated_code,
+        "optimized_code": optimized_code,
+        "project_progress": projects[project_id]['progress']
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -92,5 +92,27 @@ class TestAIFusionAPI(unittest.TestCase):
         self.assertEqual(data['message'], 'Code optimized')
         self.assertIn('optimized_code', data)
 
+    def test_integrate_ai(self):
+        # First, create a project
+        create_response = self.app.post('/devin', json={
+            'action': 'create_project',
+            'name': 'Integration Test Project'
+        })
+        create_data = json.loads(create_response.data)
+        project_id = create_data['project_id']
+
+        # Then, test the integrate endpoint
+        response = self.app.post('/integrate', json={
+            'project_id': project_id,
+            'code_description': 'Create a function to calculate the factorial of a number'
+        })
+        data = json.loads(response.data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'OK')
+        self.assertEqual(data['message'], 'Integrated AI task completed')
+        self.assertIn('generated_code', data)
+        self.assertIn('optimized_code', data)
+        self.assertIn('project_progress', data)
+
 if __name__ == '__main__':
     unittest.main()
