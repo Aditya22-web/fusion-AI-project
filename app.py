@@ -2,11 +2,28 @@ from flask import Flask, jsonify, request
 import uuid
 import git
 import json
+import os
+from dotenv import load_dotenv
+from functools import wraps
+
+load_dotenv()
 
 app = Flask(__name__)
 
+# Configuration
+CHATGPT_API_KEY = os.getenv('CHATGPT_API_KEY')
+BLACKBOX_API_KEY = os.getenv('BLACKBOX_API_KEY')
+
 # In-memory storage for projects and their details
 projects = {}
+
+def api_key_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not CHATGPT_API_KEY or not BLACKBOX_API_KEY:
+            return jsonify({"status": "Error", "message": "API keys are not configured"}), 500
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/')
 def health_check():
@@ -70,55 +87,74 @@ def chatgpt():
     data = request.json
     action = data.get('action')
 
-    if action == 'generate_code':
-        language = data.get('language', 'python')
-        description = data.get('description', '')
-        # Here you would integrate with the actual ChatGPT API
-        generated_code = f"# Generated {language} code based on: {description}\n# Placeholder for actual generated code"
-        return jsonify({"status": "OK", "message": "Code generated", "code": generated_code})
+    if not CHATGPT_API_KEY:
+        return jsonify({"status": "Error", "message": "ChatGPT API key not configured"}), 500
 
-    elif action == 'generate_documentation':
-        code = data.get('code', '')
-        # Here you would integrate with the actual ChatGPT API
-        generated_docs = f"# Documentation for the following code:\n{code}\n# Placeholder for actual generated documentation"
-        return jsonify({"status": "OK", "message": "Documentation generated", "documentation": generated_docs})
+    try:
+        if action == 'generate_code':
+            language = data.get('language', 'python')
+            description = data.get('description', '')
+            # Here you would integrate with the actual ChatGPT API using CHATGPT_API_KEY
+            generated_code = f"# Generated {language} code based on: {description}\n# Placeholder for actual generated code"
+            return jsonify({"status": "OK", "message": "Code generated", "code": generated_code})
 
-    elif action == 'answer_query':
-        query = data.get('query', '')
-        # Here you would integrate with the actual ChatGPT API
-        answer = f"Answer to: {query}\nPlaceholder for actual answer from ChatGPT"
-        return jsonify({"status": "OK", "message": "Query answered", "answer": answer})
+        elif action == 'generate_documentation':
+            code = data.get('code', '')
+            # Here you would integrate with the actual ChatGPT API using CHATGPT_API_KEY
+            generated_docs = f"# Documentation for the following code:\n{code}\n# Placeholder for actual generated documentation"
+            return jsonify({"status": "OK", "message": "Documentation generated", "documentation": generated_docs})
 
-    else:
-        return jsonify({"status": "Error", "message": "Invalid action for ChatGPT"})
+        elif action == 'answer_query':
+            query = data.get('query', '')
+            # Here you would integrate with the actual ChatGPT API using CHATGPT_API_KEY
+            answer = f"Answer to: {query}\nPlaceholder for actual answer from ChatGPT"
+            return jsonify({"status": "OK", "message": "Query answered", "answer": answer})
+
+        else:
+            return jsonify({"status": "Error", "message": "Invalid action for ChatGPT"}), 400
+
+    except Exception as e:
+        app.logger.error(f"Error in ChatGPT API: {str(e)}")
+        return jsonify({"status": "Error", "message": "An error occurred while processing your request"}), 500
 
 @app.route('/blackbox', methods=['POST'])
 def blackbox_ai():
     data = request.json
     action = data.get('action')
 
-    if action == 'search_code':
-        query = data.get('query', '')
-        language = data.get('language', 'python')
-        # Here you would integrate with the actual Blackbox AI API
-        found_code = f"# {language} code found for query: {query}\n# Placeholder for actual found code"
-        return jsonify({"status": "OK", "message": "Code found", "snippet": found_code})
+    if not BLACKBOX_API_KEY:
+        return jsonify({"status": "Error", "message": "Blackbox API key not configured"}), 500
 
-    elif action == 'optimize_code':
-        code = data.get('code', '')
-        optimization_level = data.get('optimization_level', 'medium')
-        # Here you would integrate with the actual Blackbox AI API
-        optimized_code = f"# Optimized code (level: {optimization_level}):\n{code}\n# Placeholder for actual optimized code"
-        return jsonify({"status": "OK", "message": "Code optimized", "optimized_code": optimized_code})
+    try:
+        if action == 'search_code':
+            query = data.get('query', '')
+            language = data.get('language', 'python')
+            # Here you would integrate with the actual Blackbox AI API
+            # Replace this with actual API call using BLACKBOX_API_KEY
+            found_code = f"# {language} code found for query: {query}\n# Placeholder for actual found code"
+            return jsonify({"status": "OK", "message": "Code found", "snippet": found_code})
 
-    elif action == 'analyze_complexity':
-        code = data.get('code', '')
-        # Here you would integrate with the actual Blackbox AI API
-        analysis = f"Complexity analysis for:\n{code}\nPlaceholder for actual complexity analysis"
-        return jsonify({"status": "OK", "message": "Code analyzed", "analysis": analysis})
+        elif action == 'optimize_code':
+            code = data.get('code', '')
+            optimization_level = data.get('optimization_level', 'medium')
+            # Here you would integrate with the actual Blackbox AI API
+            # Replace this with actual API call using BLACKBOX_API_KEY
+            optimized_code = f"# Optimized code (level: {optimization_level}):\n{code}\n# Placeholder for actual optimized code"
+            return jsonify({"status": "OK", "message": "Code optimized", "optimized_code": optimized_code})
 
-    else:
-        return jsonify({"status": "Error", "message": "Invalid action for Blackbox AI"})
+        elif action == 'analyze_complexity':
+            code = data.get('code', '')
+            # Here you would integrate with the actual Blackbox AI API
+            # Replace this with actual API call using BLACKBOX_API_KEY
+            analysis = f"Complexity analysis for:\n{code}\nPlaceholder for actual complexity analysis"
+            return jsonify({"status": "OK", "message": "Code analyzed", "analysis": analysis})
+
+        else:
+            return jsonify({"status": "Error", "message": "Invalid action for Blackbox AI"}), 400
+
+    except Exception as e:
+        app.logger.error(f"Error in Blackbox AI endpoint: {str(e)}")
+        return jsonify({"status": "Error", "message": "An error occurred while processing your request"}), 500
 
 @app.route('/integrate', methods=['POST'])
 def integrate_ai():

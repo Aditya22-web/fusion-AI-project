@@ -1,11 +1,22 @@
 import unittest
+from unittest.mock import patch
 from app import app
 import json
+import os
 
 class TestAIFusionAPI(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
         self.app.testing = True
+        # Mock environment variables for API keys
+        self.env_patcher = patch.dict('os.environ', {
+            'CHATGPT_API_KEY': 'mock_chatgpt_key',
+            'BLACKBOX_API_KEY': 'mock_blackbox_key'
+        })
+        self.env_patcher.start()
+
+    def tearDown(self):
+        self.env_patcher.stop()
 
     def test_health_check(self):
         response = self.app.get('/')
@@ -116,3 +127,42 @@ class TestAIFusionAPI(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+def test_chatgpt_api_error(self):
+    # Test ChatGPT API error handling
+    with patch('app.requests.post') as mock_post:
+        mock_post.side_effect = Exception("API Error")
+        response = self.app.post('/chatgpt', json={
+            'action': 'generate_code',
+            'language': 'python',
+            'description': 'Test error handling'
+        })
+        data = json.loads(response.data)
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(data['status'], 'Error')
+        self.assertIn('API Error', data['message'])
+
+def test_blackbox_api_error(self):
+    # Test Blackbox AI API error handling
+    with patch('app.requests.post') as mock_post:
+        mock_post.side_effect = Exception("API Error")
+        response = self.app.post('/blackbox', json={
+            'action': 'search_code',
+            'query': 'Test error handling',
+            'language': 'python'
+        })
+        data = json.loads(response.data)
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(data['status'], 'Error')
+        self.assertIn('API Error', data['message'])
+
+def test_invalid_project_id(self):
+    # Test handling of invalid project ID
+    response = self.app.post('/integrate', json={
+        'project_id': 'invalid_id',
+        'code_description': 'Test invalid project ID'
+    })
+    data = json.loads(response.data)
+    self.assertEqual(response.status_code, 404)
+    self.assertEqual(data['status'], 'Error')
+    self.assertEqual(data['message'], 'Project not found')
