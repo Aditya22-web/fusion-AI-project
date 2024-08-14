@@ -3,6 +3,7 @@ import uuid
 import git
 import json
 import os
+import requests
 from dotenv import load_dotenv
 from functools import wraps
 
@@ -90,32 +91,72 @@ def chatgpt():
     if not CHATGPT_API_KEY:
         return jsonify({"status": "Error", "message": "ChatGPT API key not configured"}), 500
 
+    headers = {
+        "Authorization": f"Bearer {CHATGPT_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    api_url = "https://api.openai.com/v1/chat/completions"
+
     try:
         if action == 'generate_code':
             language = data.get('language', 'python')
             description = data.get('description', '')
-            # Here you would integrate with the actual ChatGPT API using CHATGPT_API_KEY
-            generated_code = f"# Generated {language} code based on: {description}\n# Placeholder for actual generated code"
+            prompt = f"Generate {language} code for: {description}"
+
+            payload = {
+                "model": "gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+
+            response = requests.post(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            generated_code = response.json()['choices'][0]['message']['content']
+
             return jsonify({"status": "OK", "message": "Code generated", "code": generated_code})
 
         elif action == 'generate_documentation':
             code = data.get('code', '')
-            # Here you would integrate with the actual ChatGPT API using CHATGPT_API_KEY
-            generated_docs = f"# Documentation for the following code:\n{code}\n# Placeholder for actual generated documentation"
+            prompt = f"Generate documentation for the following code:\n{code}"
+
+            payload = {
+                "model": "gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+
+            response = requests.post(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            generated_docs = response.json()['choices'][0]['message']['content']
+
             return jsonify({"status": "OK", "message": "Documentation generated", "documentation": generated_docs})
 
         elif action == 'answer_query':
             query = data.get('query', '')
-            # Here you would integrate with the actual ChatGPT API using CHATGPT_API_KEY
-            answer = f"Answer to: {query}\nPlaceholder for actual answer from ChatGPT"
+
+            payload = {
+                "model": "gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": query}]
+            }
+
+            response = requests.post(api_url, headers=headers, json=payload)
+            response.raise_for_status()
+            answer = response.json()['choices'][0]['message']['content']
+
             return jsonify({"status": "OK", "message": "Query answered", "answer": answer})
 
         else:
             return jsonify({"status": "Error", "message": "Invalid action for ChatGPT"}), 400
 
-    except Exception as e:
-        app.logger.error(f"Error in ChatGPT API: {str(e)}")
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Error in ChatGPT API request: {str(e)}")
+        if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 429:
+            return jsonify({"status": "Error", "message": "API rate limit exceeded. Please try again later."}), 429
         return jsonify({"status": "Error", "message": "An error occurred while processing your request"}), 500
+    except KeyError as e:
+        app.logger.error(f"Unexpected response format from ChatGPT API: {str(e)}")
+        return jsonify({"status": "Error", "message": "Unexpected response from ChatGPT API"}), 500
+    except Exception as e:
+        app.logger.error(f"Unexpected error in ChatGPT API: {str(e)}")
+        return jsonify({"status": "Error", "message": "An unexpected error occurred"}), 500
 
 @app.route('/blackbox', methods=['POST'])
 def blackbox_ai():
